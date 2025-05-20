@@ -36,7 +36,6 @@
   </style>
 </head>
 <body>
-
 <script>
 let tank;
 let bullets = [];
@@ -210,20 +209,19 @@ function draw() {
     rectMode(CENTER);
     rect(obstacle.pos.x, obstacle.pos.y, obstacle.w, obstacle.h);
   }
-  // NEW: Draw directional arrow on minimap
+  // Draw directional arrow on minimap
   push();
-  translate(tank.pos.x, tank.pos.y);
+  translate(tank.pos.x - (10 / 3) / mapScale, tank.pos.y); // Offset to align centroid with tank position
   rotate(tank.angle); // Rotate to tank's orientation
   fill(0, 255, 0); // Green color
   noStroke();
-  // Draw a triangle for the arrow pointing forward
+  // Draw a smaller, skinnier triangle for the arrow
   triangle(
-    0, -8 / mapScale, // Top point
-    15 / mapScale, 0,  // Right point
-    0, 8 / mapScale    // Bottom point
+    0, -4 / mapScale, // Top point
+    10 / mapScale, 0, // Right point
+    0, 4 / mapScale   // Bottom point
   );
   pop();
-  // OLD: fill(255); ellipse(tank.pos.x, tank.pos.y, 5 / mapScale, 5 / mapScale); // Removed the old white dot
   noFill();
   stroke(255);
   strokeWeight(1 / mapScale);
