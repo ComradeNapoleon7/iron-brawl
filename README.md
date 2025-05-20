@@ -47,7 +47,7 @@ let worldHeight = 8000;
 let zoomLevel = 1;
 let targetZoom = 1;
 let minZoom = 1;
-let maxZoom = 0.2; // Changed from 1.1 to 0.2 to restore zoom and reduce max zoom slightly
+let maxZoom = 0.2; // Max zoom limits view to 4000x3000 pixels
 const FIRING_RANGE_RADIUS = 2250; // 4.5 km diameter = 4500 pixels
 
 function setup() {
@@ -236,6 +236,12 @@ function draw() {
 function keyPressed() {
   if (keyCode === 67) { // 'C' key
     cameraTargetOffset.set(0, 0);
+  } else if (keyCode === 189 || key === '-') { // Minus key to zoom out
+    targetZoom -= 0.05;
+    targetZoom = constrain(targetZoom, maxZoom, minZoom);
+  } else if (keyCode === 187 || key === '=') { // Plus key (equals key) to zoom in
+    targetZoom += 0.05;
+    targetZoom = constrain(targetZoom, maxZoom, minZoom);
   }
 }
 
