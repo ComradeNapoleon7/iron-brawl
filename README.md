@@ -1,14 +1,47 @@
+<!DOCTYPE html>
 <html>
 <head>
   <title>WW2-themed PvP Air and Tank game</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; } /* Prevent browser scrollbars */
-    canvas { display: block; } /* Remove canvas margin */
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex; /* Use flexbox to center content */
+      justify-content: center; /* Center horizontally */
+      align-items: center; /* Center vertically */
+      min-height: 100vh; /* Ensure body takes full viewport height */
+      background-color: #333; /* Dark background for outside canvas */
+    }
+    canvas {
+      display: block; /* Remove canvas margin */
+      border: 1px solid #555; /* Optional: add a subtle border to the canvas */
+    }
+    #fullscreenButton {
+      position: absolute; /* Position the button over the canvas */
+      bottom: 20px; /* Adjust as needed */
+      right: 20px; /* Adjust as needed */
+      padding: 10px 15px;
+      font-size: 16px;
+      background-color: #4CAF50; /* Green */
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 100; /* Ensure button is above canvas */
+    }
+    #fullscreenButton:hover {
+      background-color: #45a049;
+    }
   </style>
 </head>
 <body>
+
 <script>
+// --- Your existing P5.js sketch code goes here ---
+// (All the code you provided from 'let tank;' down to 'return tNear <= tFar && tNear >= 0 && tFar <= 1;')
+// --- End of your existing P5.js sketch code ---
+
 let tank;
 let bullets = [];
 let obstacles = [];
@@ -44,13 +77,18 @@ function setup() {
   obstacles.push(new Obstacle(worldWidth / 2, worldHeight - wallThickness / 2, worldWidth, wallThickness));
   obstacles.push(new Obstacle(wallThickness / 2, worldHeight / 2, wallThickness, worldHeight));
   obstacles.push(new Obstacle(worldWidth - wallThickness / 2, worldHeight / 2, wallThickness, worldHeight));
+
+  // Create the fullscreen button in setup
+  let fsButton = createButton('Fullscreen');
+  fsButton.id('fullscreenButton'); // Assign an ID for styling
+  fsButton.mousePressed(toggleFullscreen);
 }
 
 function draw() {
   background(200, 220, 170);
-  
+
   zoomLevel = lerp(zoomLevel, targetZoom, 0.1); // Smooth zoom
-  
+
   let moveDistX = width / 4;
   let moveDistY = height / 4;
   if (keyIsDown(LEFT_ARROW)) {
@@ -65,20 +103,20 @@ function draw() {
   if (keyIsDown(DOWN_ARROW)) {
     cameraTargetOffset.y += moveDistY;
   }
-  
+
   cameraOffset.lerp(cameraTargetOffset, 0.1);
-  
+
   let cameraPos = createVector(tank.pos.x + cameraOffset.x, tank.pos.y + cameraOffset.y);
   let viewWidth = width / zoomLevel;
   let viewHeight = height / zoomLevel;
   cameraPos.x = constrain(cameraPos.x, viewWidth / 2, worldWidth - viewWidth / 2);
   cameraPos.y = constrain(cameraPos.y, viewHeight / 2, worldHeight - viewHeight / 2);
-  
+
   push();
   translate(width / 2, height / 2);
   scale(zoomLevel);
   translate(-cameraPos.x, -cameraPos.y);
-  
+
   push();
   translate(tank.pos.x, tank.pos.y);
   stroke(255, 0, 0);
@@ -87,14 +125,14 @@ function draw() {
   ellipse(0, 0, FIRING_RANGE_RADIUS * 2, FIRING_RANGE_RADIUS * 2);
   noStroke();
   pop();
-  
+
   tank.update();
   tank.display();
-  
+
   for (let obstacle of obstacles) {
     obstacle.display();
   }
-  
+
   for (let i = bullets.length - 1; i >= 0; i--) {
     bullets[i].update();
     if (bullets[i].hitsObstacle() || bullets[i].hitsFiringRange()) {
@@ -106,21 +144,21 @@ function draw() {
       bullets.splice(i, 1);
     }
   }
-  
+
   pop();
-  
+
   let mousePos = createVector(mouseX, mouseY);
   let worldMousePos = mousePos.copy();
   worldMousePos.sub(createVector(width / 2, height / 2));
   worldMousePos.div(zoomLevel);
   worldMousePos.add(cameraPos);
-  
+
   // Draw mouse crosshair
   push();
   translate(mouseX, mouseY);
   let now = millis();
   let progress = (now - tank.lastShot) / tank.shotCooldown;
-  let crosshairColor = (now - tank.lastShot < tank.shotCooldown) 
+  let crosshairColor = (now - tank.lastShot < tank.shotCooldown)
     ? (progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(255, 165, 0)) // White flash at 95%-99.44% reload, else orange
     : (tank.shotBlocked(worldMousePos) ? color(255, 0, 0) : color(0, 255, 0)); // Red if blocked, green if clear
   stroke(crosshairColor);
@@ -138,7 +176,7 @@ function draw() {
   }
   noStroke();
   pop();
-  
+
   // Draw turret crosshair
   let mouseDist = dist(tank.pos.x, tank.pos.y, worldMousePos.x, worldMousePos.y);
   let turretDir = p5.Vector.fromAngle(tank.angle + tank.turretAngle);
@@ -157,7 +195,7 @@ function draw() {
   line(0, -6, 0, 6);
   noStroke();
   pop();
-  
+
   push();
   translate(width - 110, 10);
   fill(200, 220, 170, 200);
@@ -204,6 +242,17 @@ function mousePressed() {
   tank.shoot();
 }
 
+// Function to handle fullscreen
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(err => {
+      console.log(`Error attempting to enable fullscreen: ${err.message} (${err.name})`);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+}
+
 class Tank {
   constructor(x, y) {
     this.pos = createVector(x, y);
@@ -214,7 +263,7 @@ class Tank {
     this.lastShot = 0;
     this.shotCooldown = 4500;
   }
-  
+
   update() {
     let accForward = 0.1; // Halved from 0.2 to make acceleration slightly harder
     let accBackward = 0.0375; // Halved from 0.075 to maintain proportion
@@ -222,7 +271,7 @@ class Tank {
     let maxSpeedBackward = 1.875; // Unchanged: ~15 mph
     let drag = 0.1;
     let maxAngularVel = 0.5236;
-    
+
     // W moves forward, S moves backward
     if (keyIsDown(87)) { // W: forward
       let force = p5.Vector.fromAngle(this.angle).mult(accForward);
@@ -232,7 +281,7 @@ class Tank {
       let force = p5.Vector.fromAngle(this.angle).mult(-accBackward);
       this.vel.add(force);
     }
-    
+
     // A and D turning: no inversion
     if (keyIsDown(65)) { // A: turn left
       this.angularVel -= 0.01;
@@ -240,23 +289,23 @@ class Tank {
     if (keyIsDown(68)) { // D: turn right
       this.angularVel += 0.01;
     }
-    
+
     this.angularVel = constrain(this.angularVel, -maxAngularVel / frameRate(), maxAngularVel / frameRate());
-    
+
     // Apply appropriate max speed based on key
     let velMag = this.vel.mag();
     let maxSpeed = keyIsDown(83) ? maxSpeedBackward : maxSpeedForward;
     if (velMag > maxSpeed) {
       this.vel.setMag(maxSpeed);
     }
-    
+
     this.vel.mult(1 - drag);
     this.angularVel *= 0.9;
-    
+
     let oldPos = this.pos.copy();
     this.pos.add(this.vel);
     this.angle += this.angularVel;
-    
+
     for (let obstacle of obstacles) {
       if (this.collidesWith(obstacle)) {
         this.pos = oldPos;
@@ -264,10 +313,10 @@ class Tank {
         break;
       }
     }
-    
+
     this.pos.x = constrain(this.pos.x, 0, worldWidth);
     this.pos.y = constrain(this.pos.y, 0, worldHeight);
-    
+
     let cameraPos = createVector(tank.pos.x + cameraOffset.x, tank.pos.y + cameraOffset.y);
     let mousePos = createVector(mouseX, mouseY);
     mousePos.sub(createVector(width / 2, height / 2));
@@ -280,7 +329,7 @@ class Tank {
     let maxTurretSpeed = 0.6109;
     this.turretAngle += constrain(angleDiff, -maxTurretSpeed / frameRate(), maxTurretSpeed / frameRate());
   }
-  
+
   shoot() {
     let now = millis();
     if (now - this.lastShot > this.shotCooldown) {
@@ -290,7 +339,7 @@ class Tank {
       this.lastShot = now;
     }
   }
-  
+
   shotBlocked(target) {
     let turretPos = this.pos.copy().add(p5.Vector.fromAngle(this.angle).mult(10)).add(p5.Vector.fromAngle(this.angle + this.turretAngle).mult(16));
     for (let obstacle of obstacles) {
@@ -307,17 +356,17 @@ class Tank {
     }
     return false;
   }
-  
+
   collidesWith(obstacle) {
     let tankHalfW = 35;
     let tankHalfH = 18;
     let obsHalfW = obstacle.w / 2;
     let obsHalfH = obstacle.h / 2;
-    
+
     return (abs(this.pos.x - obstacle.pos.x) < tankHalfW + obsHalfW &&
             abs(this.pos.y - obstacle.pos.y) < tankHalfH + obsHalfH);
   }
-  
+
   display() {
     push();
     translate(this.pos.x, this.pos.y);
@@ -347,11 +396,11 @@ class Bullet {
     this.pos = pos.copy();
     this.vel = dir.copy().mult(3);
   }
-  
+
   update() {
     this.pos.add(this.vel);
   }
-  
+
   hitsObstacle() {
     for (let obstacle of obstacles) {
       let obsHalfW = obstacle.w / 2;
@@ -363,12 +412,12 @@ class Bullet {
     }
     return false;
   }
-  
+
   hitsFiringRange() {
     let distToTank = dist(this.pos.x, this.pos.y, tank.pos.x, tank.pos.y);
     return distToTank >= FIRING_RANGE_RADIUS;
   }
-  
+
   display() {
     push();
     translate(this.pos.x, this.pos.y);
@@ -376,7 +425,7 @@ class Bullet {
     ellipse(0, 0, 5, 5);
     pop();
   }
-  
+
   offscreen() {
     return this.pos.x < 0 || this.pos.x > worldWidth || this.pos.y < 0 || this.pos.y > worldHeight;
   }
@@ -388,7 +437,7 @@ class Obstacle {
     this.w = w;
     this.h = h;
   }
-  
+
   display() {
     push();
     translate(this.pos.x, this.pos.y);
@@ -404,20 +453,20 @@ function lineIntersectsRect(p1, p2, rect) {
   let rectRight = rect.pos.x + rect.w / 2;
   let rectTop = rect.pos.y - rect.h / 2;
   let rectBottom = rect.pos.y + rect.h / 2;
-  
+
   let minX = min(p1.x, p2.x);
   let maxX = max(p1.x, p2.x);
   let minY = min(p1.y, p2.y);
   let maxY = max(p1.y, p2.y);
-  
+
   if (maxX < rectLeft || minX > rectRight || maxY < rectTop || minY > rectBottom) {
     return false;
   }
-  
+
   let lineDir = p2.copy().sub(p1);
   let tNear = -Infinity;
   let tFar = Infinity;
-  
+
   if (lineDir.x !== 0) {
     let tx1 = (rectLeft - p1.x) / lineDir.x;
     let tx2 = (rectRight - p1.x) / lineDir.x;
@@ -426,7 +475,7 @@ function lineIntersectsRect(p1, p2, rect) {
   } else if (p1.x < rectLeft || p1.x > rectRight) {
     return false;
   }
-  
+
   if (lineDir.y !== 0) {
     let ty1 = (rectTop - p1.y) / lineDir.y;
     let ty2 = (rectBottom - p1.y) / lineDir.y;
@@ -435,7 +484,7 @@ function lineIntersectsRect(p1, p2, rect) {
   } else if (p1.y < rectTop || p1.y > rectBottom) {
     return false;
   }
-  
+
   return tNear <= tFar && tNear >= 0 && tFar <= 1;
 }
 </script>
