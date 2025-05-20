@@ -1,7 +1,3 @@
-# iron-brawl
-Iron Brawl is a WW2-themed Air and Ground PvP Action Game.
-
-<!DOCTYPE html>
 <html>
 <head>
   <title>2D Tank Game with Flatter Arrow and Thinner Hull Outline</title>
