@@ -47,7 +47,7 @@ let worldHeight = 8000;
 let zoomLevel = 1;
 let targetZoom = 1;
 let minZoom = 1;
-let maxZoom = 0.1;
+let maxZoom = 0.2; // Changed from 1.1 to 0.2 to restore zoom and reduce max zoom slightly
 const FIRING_RANGE_RADIUS = 2250; // 4.5 km diameter = 4500 pixels
 
 function setup() {
@@ -204,12 +204,7 @@ function draw() {
   noFill();
   ellipse(tank.pos.x, tank.pos.y, FIRING_RANGE_RADIUS * 2, FIRING_RANGE_RADIUS * 2);
   noStroke();
-  for (let obstacle of obstacles) {
-    fill(150, 100, 50);
-    rectMode(CENTER);
-    rect(obstacle.pos.x, obstacle.pos.y, obstacle.w, obstacle.h);
-  }
-  // Draw directional arrow on minimap
+  // Draw directional arrow on minimap (before obstacles for layering)
   push();
   translate(tank.pos.x - (10 / 3) / mapScale, tank.pos.y); // Offset to align centroid with tank position
   rotate(tank.angle); // Rotate to tank's orientation
@@ -222,9 +217,16 @@ function draw() {
     0, 4 / mapScale   // Bottom point
   );
   pop();
+  // Draw obstacles (after tank arrow for layering)
+  for (let obstacle of obstacles) {
+    fill(150, 100, 50);
+    rectMode(CENTER);
+    rect(obstacle.pos.x, obstacle.pos.y, obstacle.w, obstacle.h);
+  }
   noFill();
   stroke(255);
   strokeWeight(1 / mapScale);
+  // Camera box represents viewed area
   rect(cameraPos.x, cameraPos.y, viewWidth, viewHeight);
   noStroke();
   pop();
