@@ -130,13 +130,13 @@ function draw() {
   }
 
   for (let i = bullets.length - 1; i >= 0; i--) {
-    bullets: i).update();
-    if (bullets: i).hitsObstacle() || bullets: i).hitsFiringRange()) {
+    bullets[i].update();
+    if (bullets[i].hitsObstacle() || bullets[i].hitsFiringRange()) {
       bullets.splice(i, 1);
       continue;
     }
-    bullets: i).display();
-    if (bullets: i).offscreen()) {
+    bullets[i].display();
+    if (bullets[i].offscreen()) {
       bullets.splice(i, 1);
     }
   }
@@ -210,19 +210,20 @@ function draw() {
     rectMode(CENTER);
     rect(obstacle.pos.x, obstacle.pos.y, obstacle.w, obstacle.h);
   }
-  // NEW: Draw smaller, skinnier directional arrow on minimap (centered)
+  // NEW: Draw directional arrow on minimap
   push();
   translate(tank.pos.x, tank.pos.y);
   rotate(tank.angle); // Rotate to tank's orientation
   fill(0, 255, 0); // Green color
   noStroke();
-  // Draw a skinnier triangle for the arrow, centered at 0,0
+  // Draw a triangle for the arrow pointing forward
   triangle(
-    -3 / mapScale, 0,     // Left point
-    3 / mapScale, 0,      // Right point
-    0, -8 / mapScale     // Top point (making it point forward)
+    0, -8 / mapScale, // Top point
+    15 / mapScale, 0,  // Right point
+    0, 8 / mapScale    // Bottom point
   );
   pop();
+  // OLD: fill(255); ellipse(tank.pos.x, tank.pos.y, 5 / mapScale, 5 / mapScale); // Removed the old white dot
   noFill();
   stroke(255);
   strokeWeight(1 / mapScale);
@@ -272,10 +273,11 @@ class Tank {
   }
 
   update() {
-    let accForward = 0.1;
-    let accBackward = 0.0375;
-    let maxSpeedForward = 5 * 1.5;   // Increased by 1.5x
-    let maxSpeedBackward = 1.875 * 1.5; // Increased by 1.5x
+    // Increased by 1.5x from original values
+    let accForward = 0.1 * 1.5; // Was 0.1, now 0.15
+    let accBackward = 0.0375 * 1.5; // Was 0.0375, now 0.05625
+    let maxSpeedForward = 5 * 1.5; // Was 5, now 7.5
+    let maxSpeedBackward = 1.875 * 1.5; // Was 1.875, now 2.8125
     let drag = 0.1;
     let maxAngularVel = 0.5236;
 
