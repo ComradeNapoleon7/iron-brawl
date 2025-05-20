@@ -38,10 +38,6 @@
 <body>
 
 <script>
-// --- Your existing P5.js sketch code goes here ---
-// (All the code you provided from 'let tank;' down to 'return tNear <= tFar && tNear >= 0 && tFar <= 1;')
-// --- End of your existing P5.js sketch code ---
-
 let tank;
 let bullets = [];
 let obstacles = [];
@@ -214,8 +210,19 @@ function draw() {
     rectMode(CENTER);
     rect(obstacle.pos.x, obstacle.pos.y, obstacle.w, obstacle.h);
   }
-  fill(255);
-  ellipse(tank.pos.x, tank.pos.y, 5 / mapScale, 5 / mapScale);
+  // NEW: Draw directional arrow on minimap
+  push();
+  translate(tank.pos.x, tank.pos.y);
+  rotate(tank.angle); // Rotate to tank's orientation
+  fill(0, 255, 0); // Green color
+  noStroke();
+  // Draw a triangle for the arrow pointing forward
+  triangle(
+    0, -8 / mapScale, // Top point
+    15 / mapScale, 0,  // Right point
+    0, 8 / mapScale    // Bottom point
+  );
+  pop();
   noFill();
   stroke(255);
   strokeWeight(1 / mapScale);
@@ -265,10 +272,14 @@ class Tank {
   }
 
   update() {
-    let accForward = 0.1; // Halved from 0.2 to make acceleration slightly harder
-    let accBackward = 0.0375; // Halved from 0.075 to maintain proportion
-    let maxSpeedForward = 5; // Unchanged: ~40 mph
-    let maxSpeedBackward = 1.875; // Unchanged: ~15 mph
+    // Acceleration values remain original
+    let accForward = 0.1;
+    let accBackward = 0.0375;
+
+    // Max speeds are increased by 1.5x
+    let maxSpeedForward = 5 * 1.5; // Was 5, now 7.5
+    let maxSpeedBackward = 1.875 * 1.5; // Was 1.875, now 2.8125
+
     let drag = 0.1;
     let maxAngularVel = 0.5236;
 
