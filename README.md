@@ -1,6 +1,6 @@
 <html>
 <head>
-  <title>2D Tank Game with Flatter Arrow and Thinner Hull Outline</title>
+  <title>WW2-themed PvP Air and Tank game</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <style>
     body { margin: 0; overflow: hidden; } /* Prevent browser scrollbars */
