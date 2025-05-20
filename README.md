@@ -190,7 +190,8 @@ function draw() {
 
   cameraOffset.lerp(cameraTargetOffset, 0.1);
 
-  let cameraPos = createVector(playerVehicle.pos.x + cameraOffset.x, playerVehicle.pos.y + cameraOffset.y);
+  let cameraPos = playerVehicle.pos.copy();
+  cameraPos.add(cameraOffset);
   let viewWidth = width / zoomLevel;
   let viewHeight = height / zoomLevel;
   cameraPos.x = constrain(cameraPos.x, viewWidth / 2, worldWidth - viewWidth / 2);
@@ -241,7 +242,7 @@ function draw() {
       return;
     }
     if (bombs[i].state === 'exploding' && bombs[i].explosionTime >= 1000) {
-      bullets.splice(i, 1);
+      bombs.splice(i, 1);
       continue;
     }
     bombs[i].display();
@@ -364,7 +365,7 @@ function draw() {
   ellipse(playerVehicle.pos.x, playerVehicle.pos.y, FIRING_RANGE_RADIUS * 2, FIRING_RANGE_RADIUS * 2);
   noStroke();
   push();
-  translate(playerVehicle.pos.x - (10 / 3) / mapScale, playerVehicle.pos.y);
+  translate(playerVehicle.pos.x, playerVehicle.pos.y);
   rotate(playerVehicle.angle);
   fill(vehicleType === 'tank' ? color(0, 255, 0) : color(0, 100, 255));
   noStroke();
@@ -401,8 +402,6 @@ function keyPressed() {
   } else if (keyCode === 32) {
     if (vehicleType === 'airplane') {
       playerVehicle.dropBomb();
-    } else if (vehicleType === 'tank') {
-      playerVehicle.shootMachineGun();
     }
   }
 }
@@ -441,15 +440,13 @@ class Tank {
     this.angularVel = 0;
     this.lastShot = 0;
     this.shotCooldown = 4500;
-    this.lastMachineGunShot = 0;
-    this.machineGunCooldown = 400;
   }
 
   update() {
-    let accForward = 0.15;
-    let accBackward = 0.05625;
-    let maxSpeedForward = 7.5;
-    let maxSpeedBackward = 2.8125;
+    let accForward = 0.3;
+    let accBackward = 0.1125;
+    let maxSpeedForward = 15;
+    let maxSpeedBackward = 5.625;
     let drag = 0.1;
     let maxAngularVel = 0.5236;
 
@@ -518,19 +515,6 @@ class Tank {
     }
   }
 
-  shootMachineGun() {
-    let now = millis();
-    if (now - this.lastMachineGunShot > this.machineGunCooldown) {
-      let turretDir = p5.Vector.fromAngle(this.angle + this.turretAngle);
-      let machineGunPos = this.pos.copy()
-        .add(p5.Vector.fromAngle(this.angle).mult(10))
-        .add(turretDir.mult(10))
-        .add(p5.Vector.fromAngle(this.angle + this.turretAngle + HALF_PI).mult(8));
-      bullets.push(new Bullet(machineGunPos, turretDir, 'tankMachineGun'));
-      this.lastMachineGunShot = now;
-    }
-  }
-
   shotBlocked(target) {
     let turretPos = this.pos.copy().add(p5.Vector.fromAngle(this.angle).mult(10)).add(p5.Vector.fromAngle(this.angle + this.turretAngle).mult(16));
     for (let obstacle of obstacles) {
@@ -585,8 +569,6 @@ class Tank {
       fill(80, 100, 80);
       ellipse(0, 0, 20, 20);
       rect(15, 0, 20, 5);
-      // Machine gun: 10x3 pixels, 8 pixels right of barrel center
-      rect(15, 8, 10, 3);
     // }
     pop();
   }
@@ -806,9 +788,6 @@ class Bullet {
         fill(255, 165, 0);
         ellipse(0, 0, 3);
       // }
-    } else if (this.type === 'tankMachineGun') {
-      fill(255, 0, 0);
-      ellipse(0, 0, 3);
     }
     pop();
   }
