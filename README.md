@@ -1,44 +1,77 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>WW2-themed PvP Air and Tank game</title>
+  <title>WW2-themed PvP Air and Tank Game</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      display: flex; /* Use flexbox to center content */
-      justify-content: center; /* Center horizontally */
-      align-items: center; /* Center vertically */
-      min-height: 100vh; /* Ensure body takes full viewport height */
-      background-color: #333; /* Dark background for outside canvas */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #333;
     }
     canvas {
-      display: block; /* Remove canvas margin */
-      border: 1px solid #555; /* Optional: add a subtle border to the canvas */
+      display: block;
+      border: 1px solid #555;
     }
-    #fullscreenButton {
-      position: absolute; /* Position the button over the canvas */
-      bottom: 20px; /* Adjust as needed */
-      right: 20px; /* Adjust as needed */
+    #fullscreenButton, #tankButton, #airplaneButton, #playButton {
+      position: absolute;
       padding: 10px 15px;
       font-size: 16px;
-      background-color: #4CAF50; /* Green */
+      background-color: #4CAF50;
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      z-index: 100; /* Ensure button is above canvas */
+      z-index: 100;
     }
-    #fullscreenButton:hover {
+    #fullscreenButton:hover, #tankButton:hover, #airplaneButton:hover, #playButton:hover {
       background-color: #45a049;
+    }
+    #tankButton {
+      top: 40%;
+      left: 40%;
+    }
+    #airplaneButton {
+      top: 40%;
+      left: 50%;
+    }
+    #playButton {
+      top: 50%;
+      left: 45%;
+      display: none;
+    }
+    #fullscreenButton {
+      bottom: 20px;
+      right: 20px;
     }
   </style>
 </head>
 <body>
 <script>
+// Global image variables (uncomment and set URLs in preload)
+let tankHullImg, tankTurretImg, tankBulletImg, airplaneBulletImg, bombImg, airplaneImg, obstacleImg, mapBackgroundImg;
+
+function preload() {
+  // Uncomment and replace 'URL' with actual image URLs
+  // tankHullImg = loadImage('URL'); // For tank hull (70x36 pixels)
+  // tankTurretImg = loadImage('URL'); // For tank turret (20x20 base + 20x5 barrel)
+  // tankBulletImg = loadImage('URL'); // For tank bullet (5 pixels)
+  // airplaneBulletImg = loadImage('URL'); // For airplane bullet (3 pixels)
+  // bombImg = loadImage('URL'); // For bomb (75x37.5 pixels)
+  // airplaneImg = loadImage('URL'); // For airplane (72x24 fuselage + 96x21.6 wings)
+  // obstacleImg = loadImage('URL'); // For obstacle (100-200x100-200 pixels)
+  // mapBackgroundImg = loadImage('URL'); // For map background (8000x8000 pixels)
+}
+
 let tank;
+let playerVehicle;
+let vehicleType;
 let bullets = [];
+let bombs = [];
 let obstacles = [];
 let cameraOffset;
 let cameraTargetOffset;
@@ -47,45 +80,101 @@ let worldHeight = 8000;
 let zoomLevel = 1;
 let targetZoom = 1;
 let minZoom = 1;
-let maxZoom = 0.2; // Max zoom limits view to 4000x3000 pixels
-const FIRING_RANGE_RADIUS = 2250; // 4.5 km diameter = 4500 pixels
+let maxZoom = 0.2;
+const FIRING_RANGE_RADIUS = 2250;
+let gameState = "start";
+let tankButton, airplaneButton, playButton;
 
 function setup() {
   createCanvas(800, 600);
-  noCursor(); // Hide the mouse cursor
-  tank = new Tank(worldWidth / 2, worldHeight / 2);
+  resetGame();
+  tankButton = createButton('Tank');
+  tankButton.id('tankButton');
+  tankButton.mousePressed(() => selectVehicle('tank'));
+  airplaneButton = createButton('Airplane');
+  airplaneButton.id('airplaneButton');
+  airplaneButton.mousePressed(() => selectVehicle('airplane'));
+  playButton = createButton('Play');
+  playButton.id('playButton');
+  playButton.mousePressed(startGame);
+  let fsButton = createButton('Fullscreen');
+  fsButton.id('fullscreenButton');
+  fsButton.mousePressed(toggleFullscreen);
+}
+
+function resetGame() {
+  obstacles = [];
+  bullets = [];
+  bombs = [];
   cameraOffset = createVector(0, 0);
   cameraTargetOffset = createVector(0, 0);
+  zoomLevel = 1;
+  targetZoom = 1;
   for (let i = 0; i < 30; i++) {
     let w = random(100, 200);
     let h = random(100, 200);
     let x = random(w / 2, worldWidth - w / 2);
     let y = random(h / 2, worldHeight - h / 2);
-    if (abs(x - tank.pos.x) > w / 2 + 35 && abs(y - tank.pos.y) > h / 2 + 18) {
-      obstacles.push(new Obstacle(x, y, w, h));
-    } else {
-      i--;
-    }
+    obstacles.push(new Obstacle(x, y, w, h));
   }
   let wallThickness = 100;
   obstacles.push(new Obstacle(worldWidth / 2, wallThickness / 2, worldWidth, wallThickness));
   obstacles.push(new Obstacle(worldWidth / 2, worldHeight - wallThickness / 2, worldWidth, wallThickness));
   obstacles.push(new Obstacle(wallThickness / 2, worldHeight / 2, wallThickness, worldHeight));
   obstacles.push(new Obstacle(worldWidth - wallThickness / 2, worldHeight / 2, wallThickness, worldHeight));
+}
 
-  // Create the fullscreen button in setup
-  let fsButton = createButton('Fullscreen');
-  fsButton.id('fullscreenButton'); // Assign an ID for styling
-  fsButton.mousePressed(toggleFullscreen);
+function selectVehicle(type) {
+  vehicleType = type;
+  playButton.style('display', 'block');
+}
+
+function startGame() {
+  gameState = "playing";
+  tankButton.hide();
+  airplaneButton.hide();
+  playButton.hide();
+  resetGame();
+  if (vehicleType === 'tank') {
+    playerVehicle = new Tank(worldWidth / 2, worldHeight / 2);
+  } else {
+    playerVehicle = new Airplane(worldWidth / 2, worldHeight / 2);
+  }
 }
 
 function draw() {
+  if (gameState === "start") {
+    background(100);
+    cursor();
+    textAlign(CENTER);
+    textSize(32);
+    fill(255);
+    text("Select Your Vehicle", width / 2, height / 3);
+    return;
+  }
+
+  if (mouseX >= 0 && mouseX < width && mouseY >= 0 && mouseY < height) {
+    noCursor();
+  } else {
+    cursor();
+  }
+
   background(200, 220, 170);
+  // Placeholder for map background image
+  // if (mapBackgroundImg) {
+  //   push();
+  //   translate(width / 2, height / 2);
+  //   scale(zoomLevel);
+  //   translate(-cameraPos.x, -cameraPos.y);
+  //   imageMode(CENTER);
+  //   image(mapBackgroundImg, worldWidth / 2, worldHeight / 2, worldWidth, worldHeight);
+  //   pop();
+  // }
 
-  zoomLevel = lerp(zoomLevel, targetZoom, 0.1); // Smooth zoom
+  zoomLevel = lerp(zoomLevel, targetZoom, 0.1);
 
-  let moveDistX = width / 4;
-  let moveDistY = height / 4;
+  let moveDistX = width / 10;
+  let moveDistY = height / 10;
   if (keyIsDown(LEFT_ARROW)) {
     cameraTargetOffset.x -= moveDistX;
   }
@@ -101,7 +190,7 @@ function draw() {
 
   cameraOffset.lerp(cameraTargetOffset, 0.1);
 
-  let cameraPos = createVector(tank.pos.x + cameraOffset.x, tank.pos.y + cameraOffset.y);
+  let cameraPos = createVector(playerVehicle.pos.x + cameraOffset.x, playerVehicle.pos.y + cameraOffset.y);
   let viewWidth = width / zoomLevel;
   let viewHeight = height / zoomLevel;
   cameraPos.x = constrain(cameraPos.x, viewWidth / 2, worldWidth - viewWidth / 2);
@@ -113,7 +202,7 @@ function draw() {
   translate(-cameraPos.x, -cameraPos.y);
 
   push();
-  translate(tank.pos.x, tank.pos.y);
+  translate(playerVehicle.pos.x, playerVehicle.pos.y);
   stroke(255, 0, 0);
   strokeWeight(2 / zoomLevel);
   noFill();
@@ -121,8 +210,10 @@ function draw() {
   noStroke();
   pop();
 
-  tank.update();
-  tank.display();
+  if (vehicleType === 'tank') {
+    playerVehicle.update();
+    playerVehicle.display();
+  }
 
   for (let obstacle of obstacles) {
     obstacle.display();
@@ -130,14 +221,41 @@ function draw() {
 
   for (let i = bullets.length - 1; i >= 0; i--) {
     bullets[i].update();
-    if (bullets[i].hitsObstacle() || bullets[i].hitsFiringRange()) {
+    if (vehicleType === 'tank' && (bullets[i].hitsObstacle() || bullets[i].hitsFiringRange())) {
+      bullets.splice(i, 1);
+      continue;
+    }
+    if (bullets[i].offscreen()) {
       bullets.splice(i, 1);
       continue;
     }
     bullets[i].display();
-    if (bullets[i].offscreen()) {
-      bullets.splice(i, 1);
+  }
+
+  for (let i = bombs.length - 1; i >= 0; i--) {
+    bombs[i].update();
+    if (bombs[i].state === 'hit' && vehicleType === 'tank' && bombs[i].hitTime === 0 && bombs[i].hitsTank(playerVehicle)) {
+      gameState = "start";
+      tankButton.show();
+      airplaneButton.show();
+      return;
     }
+    if (bombs[i].state === 'exploding' && bombs[i].explosionTime >= 1000) {
+      bullets.splice(i, 1);
+      continue;
+    }
+    bombs[i].display();
+  }
+
+  if (vehicleType === 'airplane') {
+    playerVehicle.update();
+    if (playerVehicle.state === 'exploding' && playerVehicle.explosionTime >= 1000) {
+      gameState = "start";
+      tankButton.show();
+      airplaneButton.show();
+      return;
+    }
+    playerVehicle.display();
   }
 
   pop();
@@ -148,48 +266,90 @@ function draw() {
   worldMousePos.div(zoomLevel);
   worldMousePos.add(cameraPos);
 
-  // Draw mouse crosshair
-  push();
-  translate(mouseX, mouseY);
-  let now = millis();
-  let progress = (now - tank.lastShot) / tank.shotCooldown;
-  let crosshairColor = (now - tank.lastShot < tank.shotCooldown)
-    ? (progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(255, 165, 0)) // White flash at 95%-99.44% reload, else orange
-    : (tank.shotBlocked(worldMousePos) ? color(255, 0, 0) : color(0, 255, 0)); // Red if blocked, green if clear
-  stroke(crosshairColor);
-  strokeWeight(2);
-  noFill();
-  ellipse(0, 0, 20, 20);
-  line(-12, 0, 12, 0);
-  line(0, -12, 0, 12);
-  // Draw reload animation if reloading
-  if (now - tank.lastShot < tank.shotCooldown) {
-    let angle = progress * TWO_PI;
-    stroke(progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(255, 165, 0)); // White flash at 95%-99.44% reload, else orange
-    strokeWeight(4); // Original thickness
-    arc(0, 0, 20, 20, -HALF_PI, -HALF_PI + angle);
-  }
-  noStroke();
-  pop();
+  if (vehicleType === 'tank') {
+    push();
+    translate(mouseX, mouseY);
+    let now = millis();
+    let progress = (now - playerVehicle.lastShot) / playerVehicle.shotCooldown;
+    let crosshairColor = (now - playerVehicle.lastShot >= playerVehicle.shotCooldown)
+      ? color(0, 255, 0)
+      : (progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(255, 165, 0));
+    stroke(crosshairColor);
+    strokeWeight(2);
+    noFill();
+    ellipse(0, 0, 20, 20);
+    line(-12, 0, 12, 0);
+    line(0, -12, 0, 12);
+    if (now - playerVehicle.lastShot < playerVehicle.shotCooldown) {
+      let angle = progress * TWO_PI;
+      stroke(progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(0, 255, 0));
+      strokeWeight(4);
+      arc(0, 0, 20, 20, -HALF_PI, -HALF_PI + angle);
+    }
+    noStroke();
+    pop();
 
-  // Draw turret crosshair
-  let mouseDist = dist(tank.pos.x, tank.pos.y, worldMousePos.x, worldMousePos.y);
-  let turretDir = p5.Vector.fromAngle(tank.angle + tank.turretAngle);
-  let turretPos = tank.pos.copy().add(turretDir.mult(mouseDist));
-  let turretScreenPos = turretPos.copy();
-  turretScreenPos.sub(cameraPos);
-  turretScreenPos.mult(zoomLevel);
-  turretScreenPos.add(createVector(width / 2, height / 2));
-  push();
-  translate(turretScreenPos.x, turretScreenPos.y);
-  stroke(255, 255, 255); // White turret crosshair
-  strokeWeight(1); // Smaller and thinner
-  noFill();
-  ellipse(0, 0, 10, 10); // Smaller than mouse crosshair (20)
-  line(-6, 0, 6, 0);
-  line(0, -6, 0, 6);
-  noStroke();
-  pop();
+    let mouseDist = dist(playerVehicle.pos.x, playerVehicle.pos.y, worldMousePos.x, worldMousePos.y);
+    let turretDir = p5.Vector.fromAngle(playerVehicle.angle + playerVehicle.turretAngle);
+    let turretPos = playerVehicle.pos.copy().add(turretDir.mult(mouseDist));
+    let turretScreenPos = turretPos.copy();
+    turretScreenPos.sub(cameraPos);
+    turretScreenPos.mult(zoomLevel);
+    turretScreenPos.add(createVector(width / 2, height / 2));
+    push();
+    translate(turretScreenPos.x, turretScreenPos.y);
+    stroke(255, 255, 255);
+    strokeWeight(1);
+    noFill();
+    ellipse(0, 0, 10, 10);
+    line(-6, 0, 6, 0);
+    line(0, -6, 0, 6);
+    noStroke();
+    pop();
+  } else {
+    let now = millis();
+    // Existing airplane crosshair at mouse position
+    push();
+    translate(mouseX, mouseY);
+    let progress = (now - playerVehicle.lastShot) / playerVehicle.shotCooldown;
+    let crosshairColor = (now - playerVehicle.lastShot >= playerVehicle.shotCooldown)
+      ? color(0, 255, 0)
+      : (progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(255, 165, 0));
+    stroke(crosshairColor);
+    strokeWeight(2);
+    noFill();
+    ellipse(0, 0, 20, 20);
+    line(-12, 0, 12, 0);
+    line(0, -12, 0, 12);
+    if (now - playerVehicle.lastShot < playerVehicle.shotCooldown) {
+      let angle = progress * TWO_PI;
+      stroke(progress >= 0.95 && progress <= 0.9944 ? color(255, 255, 255) : color(0, 255, 0));
+      strokeWeight(4);
+      arc(0, 0, 20, 20, -HALF_PI, -HALF_PI + angle);
+    }
+    noStroke();
+    pop();
+
+    // Machine gun crosshair for airplane
+    let mouseDist = dist(playerVehicle.pos.x, playerVehicle.pos.y, worldMousePos.x, worldMousePos.y);
+    let wiggleAngle = 0; // Align with airplane heading
+    let crosshairDir = p5.Vector.fromAngle(playerVehicle.angle + wiggleAngle);
+    let crosshairPos = playerVehicle.pos.copy().add(crosshairDir.mult(mouseDist));
+    let crosshairScreenPos = crosshairPos.copy();
+    crosshairScreenPos.sub(cameraPos);
+    crosshairScreenPos.mult(zoomLevel);
+    crosshairScreenPos.add(createVector(width / 2, height / 2));
+    push();
+    translate(crosshairScreenPos.x, crosshairScreenPos.y);
+    stroke(255, 255, 255); // Always white, like tank turret crosshair
+    strokeWeight(1);
+    noFill();
+    ellipse(0, 0, 10, 10);
+    line(-6, 0, 6, 0);
+    line(0, -6, 0, 6);
+    noStroke();
+    pop();
+  }
 
   push();
   translate(width - 110, 10);
@@ -198,26 +358,22 @@ function draw() {
   let mapScale = 100 / worldWidth;
   push();
   scale(mapScale);
-  // Draw firing range on minimap
   stroke(255, 0, 0);
   strokeWeight(1 / mapScale);
   noFill();
-  ellipse(tank.pos.x, tank.pos.y, FIRING_RANGE_RADIUS * 2, FIRING_RANGE_RADIUS * 2);
+  ellipse(playerVehicle.pos.x, playerVehicle.pos.y, FIRING_RANGE_RADIUS * 2, FIRING_RANGE_RADIUS * 2);
   noStroke();
-  // Draw directional arrow on minimap (before obstacles for layering)
   push();
-  translate(tank.pos.x - (10 / 3) / mapScale, tank.pos.y); // Offset to align centroid with tank position
-  rotate(tank.angle); // Rotate to tank's orientation
-  fill(0, 255, 0); // Green color
+  translate(playerVehicle.pos.x - (10 / 3) / mapScale, playerVehicle.pos.y);
+  rotate(playerVehicle.angle);
+  fill(vehicleType === 'tank' ? color(0, 255, 0) : color(0, 100, 255));
   noStroke();
-  // Draw a smaller, skinnier triangle for the arrow
   triangle(
-    0, -4 / mapScale, // Top point
-    10 / mapScale, 0, // Right point
-    0, 4 / mapScale   // Bottom point
+    0, -4 / mapScale,
+    10 / mapScale, 0,
+    0, 4 / mapScale
   );
   pop();
-  // Draw obstacles (after tank arrow for layering)
   for (let obstacle of obstacles) {
     fill(150, 100, 50);
     rectMode(CENTER);
@@ -226,7 +382,6 @@ function draw() {
   noFill();
   stroke(255);
   strokeWeight(1 / mapScale);
-  // Camera box represents viewed area
   rect(cameraPos.x, cameraPos.y, viewWidth, viewHeight);
   noStroke();
   pop();
@@ -234,18 +389,26 @@ function draw() {
 }
 
 function keyPressed() {
-  if (keyCode === 67) { // 'C' key
+  if (gameState === "start") return;
+  if (keyCode === 67) {
     cameraTargetOffset.set(0, 0);
-  } else if (keyCode === 189 || key === '-') { // Minus key to zoom out
+  } else if (keyCode === 189 || key === '-') {
     targetZoom -= 0.05;
     targetZoom = constrain(targetZoom, maxZoom, minZoom);
-  } else if (keyCode === 187 || key === '=') { // Plus key (equals key) to zoom in
+  } else if (keyCode === 187 || key === '=') {
     targetZoom += 0.05;
     targetZoom = constrain(targetZoom, maxZoom, minZoom);
+  } else if (keyCode === 32) {
+    if (vehicleType === 'airplane') {
+      playerVehicle.dropBomb();
+    } else if (vehicleType === 'tank') {
+      playerVehicle.shootMachineGun();
+    }
   }
 }
 
 function mouseWheel(event) {
+  if (gameState === "start") return;
   let zoomChange = -event.delta / 1000;
   targetZoom += zoomChange;
   targetZoom = constrain(targetZoom, maxZoom, minZoom);
@@ -253,10 +416,12 @@ function mouseWheel(event) {
 }
 
 function mousePressed() {
-  tank.shoot();
+  if (gameState === "start") return;
+  if (vehicleType === 'tank') {
+    playerVehicle.shoot();
+  }
 }
 
-// Function to handle fullscreen
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(err => {
@@ -276,38 +441,36 @@ class Tank {
     this.angularVel = 0;
     this.lastShot = 0;
     this.shotCooldown = 4500;
+    this.lastMachineGunShot = 0;
+    this.machineGunCooldown = 400;
   }
 
   update() {
-    // Increased by 1.5x from original values
-    let accForward = 0.1 * 1.5; // Was 0.1, now 0.15
-    let accBackward = 0.0375 * 1.5; // Was 0.0375, now 0.05625
-    let maxSpeedForward = 5 * 1.5; // Was 5, now 7.5
-    let maxSpeedBackward = 1.875 * 1.5; // Was 1.875, now 2.8125
+    let accForward = 0.15;
+    let accBackward = 0.05625;
+    let maxSpeedForward = 7.5;
+    let maxSpeedBackward = 2.8125;
     let drag = 0.1;
     let maxAngularVel = 0.5236;
 
-    // W moves forward, S moves backward
-    if (keyIsDown(87)) { // W: forward
+    if (keyIsDown(87)) {
       let force = p5.Vector.fromAngle(this.angle).mult(accForward);
       this.vel.add(force);
     }
-    if (keyIsDown(83)) { // S: backward
+    if (keyIsDown(83)) {
       let force = p5.Vector.fromAngle(this.angle).mult(-accBackward);
       this.vel.add(force);
     }
 
-    // A and D turning: no inversion
-    if (keyIsDown(65)) { // A: turn left
+    if (keyIsDown(65)) {
       this.angularVel -= 0.01;
     }
-    if (keyIsDown(68)) { // D: turn right
+    if (keyIsDown(68)) {
       this.angularVel += 0.01;
     }
 
     this.angularVel = constrain(this.angularVel, -maxAngularVel / frameRate(), maxAngularVel / frameRate());
 
-    // Apply appropriate max speed based on key
     let velMag = this.vel.mag();
     let maxSpeed = keyIsDown(83) ? maxSpeedBackward : maxSpeedForward;
     if (velMag > maxSpeed) {
@@ -332,7 +495,7 @@ class Tank {
     this.pos.x = constrain(this.pos.x, 0, worldWidth);
     this.pos.y = constrain(this.pos.y, 0, worldHeight);
 
-    let cameraPos = createVector(tank.pos.x + cameraOffset.x, tank.pos.y + cameraOffset.y);
+    let cameraPos = createVector(this.pos.x + cameraOffset.x, this.pos.y + cameraOffset.y);
     let mousePos = createVector(mouseX, mouseY);
     mousePos.sub(createVector(width / 2, height / 2));
     mousePos.div(zoomLevel);
@@ -340,7 +503,7 @@ class Tank {
     let toMouse = mousePos.sub(this.pos);
     let desiredAngle = toMouse.heading();
     let currentAngle = this.angle + this.turretAngle;
-    let angleDiff = (desiredAngle - currentAngle + PI) % TWO_PI - PI;
+    let angleDiff = atan2(sin(desiredAngle - currentAngle), cos(desiredAngle - currentAngle));
     let maxTurretSpeed = 0.6109;
     this.turretAngle += constrain(angleDiff, -maxTurretSpeed / frameRate(), maxTurretSpeed / frameRate());
   }
@@ -350,19 +513,30 @@ class Tank {
     if (now - this.lastShot > this.shotCooldown) {
       let turretDir = p5.Vector.fromAngle(this.angle + this.turretAngle);
       let turretPos = this.pos.copy().add(p5.Vector.fromAngle(this.angle).mult(10)).add(turretDir.mult(16));
-      bullets.push(new Bullet(turretPos, turretDir));
+      bullets.push(new Bullet(turretPos, turretDir, 'tank'));
       this.lastShot = now;
+    }
+  }
+
+  shootMachineGun() {
+    let now = millis();
+    if (now - this.lastMachineGunShot > this.machineGunCooldown) {
+      let turretDir = p5.Vector.fromAngle(this.angle + this.turretAngle);
+      let machineGunPos = this.pos.copy()
+        .add(p5.Vector.fromAngle(this.angle).mult(10))
+        .add(turretDir.mult(10))
+        .add(p5.Vector.fromAngle(this.angle + this.turretAngle + HALF_PI).mult(8));
+      bullets.push(new Bullet(machineGunPos, turretDir, 'tankMachineGun'));
+      this.lastMachineGunShot = now;
     }
   }
 
   shotBlocked(target) {
     let turretPos = this.pos.copy().add(p5.Vector.fromAngle(this.angle).mult(10)).add(p5.Vector.fromAngle(this.angle + this.turretAngle).mult(16));
     for (let obstacle of obstacles) {
-      // Check if line of sight intersects obstacle
       if (lineIntersectsRect(turretPos, target, obstacle)) {
         return true;
       }
-      // Check if target is over obstacle
       let obsHalfW = obstacle.w / 2;
       let obsHalfH = obstacle.h / 2;
       if (abs(target.x - obstacle.pos.x) < obsHalfW && abs(target.y - obstacle.pos.y) < obsHalfH) {
@@ -386,30 +560,204 @@ class Tank {
     push();
     translate(this.pos.x, this.pos.y);
     rotate(this.angle);
-    // Hull with thinner green border
-    fill(100, 120, 100);
-    stroke(0, 255, 0);
-    strokeWeight(1); // 2x thinner (was 2)
-    rectMode(CENTER);
-    rect(0, 0, 70, 36, 10);
+    // Placeholder for tank hull image
+    // if (tankHullImg) {
+    //   imageMode(CENTER);
+    //   image(tankHullImg, 0, 0, 70, 36); // Replace 'URL' in preload with hull image URL
+    // } else {
+      fill(100, 120, 100);
+      stroke(0, 255, 0);
+      strokeWeight(1);
+      rectMode(CENTER);
+      rect(0, 0, 70, 36, 10);
+    // }
     noStroke();
-    // Front marker (flatter triangle with rounded tip)
     fill(0, 255, 0);
-    triangle(35, -3, 35, 3, 41, 0); // Flatter (6px base), less protrusive (tip at x=41)
-    ellipse(41, 0, 2, 2); // Smaller rounded tip
-    translate(10, 0); // Turret position unchanged
+    triangle(35, -3, 35, 3, 41, 0);
+    ellipse(41, 0, 2, 2);
+    translate(10, 0);
     rotate(this.turretAngle);
-    fill(80, 100, 80);
-    ellipse(0, 0, 20, 20);
-    rect(15, 0, 20, 5); // Longer barrel (length 20, centered at x=15)
+    // Placeholder for tank turret image
+    // if (tankTurretImg) {
+    //   imageMode(CENTER);
+    //   image(tankTurretImg, 0, 0, 30, 20); // Replace 'URL' in preload with turret image URL (adjust size if needed)
+    // } else {
+      fill(80, 100, 80);
+      ellipse(0, 0, 20, 20);
+      rect(15, 0, 20, 5);
+      // Machine gun: 10x3 pixels, 8 pixels right of barrel center
+      rect(15, 8, 10, 3);
+    // }
+    pop();
+  }
+}
+
+class Airplane {
+  constructor(x, y) {
+    this.pos = createVector(x, y);
+    this.angle = 0;
+    this.vel = p5.Vector.fromAngle(this.angle).mult(5.274);
+    this.angularVel = 0;
+    this.lastShot = 0;
+    this.shotCooldown = 200;
+    this.lastBomb = 0;
+    this.bombCooldown = 1000;
+    this.bombLoads = 2;
+    this.scale = 1;
+    this.stallTime = -1;
+    this.state = 'flying';
+    this.explosionTime = 0;
+    this.lastMousePos = createVector(mouseX, mouseY);
+    this.mouseMoved = false;
+  }
+
+  update() {
+    if (this.state === 'exploding') {
+      this.explosionTime += 1000 / frameRate();
+      return;
+    }
+
+    let acc = 0.3;
+    let maxSpeed = 6.153;
+    let minSpeed = 3.516;
+    let maxAngularVel = 0.753984; // 43.2°/s
+    let turnSpeed = 0.753984; // 43.2°/s
+
+    if (keyIsDown(87)) {
+      this.vel.setMag(this.vel.mag() + acc);
+    }
+    if (keyIsDown(83)) {
+      this.vel.setMag(max(0, this.vel.mag() - acc));
+    }
+
+    let cameraPos = createVector(this.pos.x + cameraOffset.x, this.pos.y + cameraOffset.y);
+    let mousePos = createVector(mouseX, mouseY);
+    mousePos.sub(createVector(width / 2, height / 2));
+    mousePos.div(zoomLevel);
+    mousePos.add(cameraPos);
+    let toMouse = mousePos.sub(this.pos);
+    let desiredAngle = toMouse.heading();
+    let angleDiff = atan2(sin(desiredAngle - this.angle), cos(desiredAngle - this.angle));
+
+    // Check if mouse has moved
+    if (dist(mouseX, mouseY, this.lastMousePos.x, this.lastMousePos.y) > 0.1) {
+      this.mouseMoved = true;
+    }
+    this.lastMousePos.set(mouseX, mouseY);
+
+    // Pause turning if aligned within 1 degree and mouse hasn't moved
+    if (abs(angleDiff) <= 0.01745 && !this.mouseMoved) {
+      this.angle = desiredAngle;
+      this.angularVel = 0;
+    } else {
+      this.angularVel += angleDiff * turnSpeed / frameRate();
+      this.angularVel = constrain(this.angularVel, -maxAngularVel / frameRate(), maxAngularVel / frameRate());
+      this.mouseMoved = false;
+    }
+
+    this.angle += this.angularVel;
+    this.vel.setMag(constrain(this.vel.mag(), 0, maxSpeed));
+    this.vel = p5.Vector.fromAngle(this.angle).mult(this.vel.mag());
+
+    this.pos.add(this.vel);
+
+    if (this.pos.x <= 0 || this.pos.x >= worldWidth || this.pos.y <= 0 || this.pos.y >= worldHeight) {
+      this.state = 'exploding';
+      this.explosionTime = 0;
+      return;
+    }
+
+    if (this.vel.mag() < minSpeed && this.stallTime === -1) {
+      this.stallTime = millis();
+    } else if (this.vel.mag() >= minSpeed) {
+      this.stallTime = -1;
+      this.scale = 1;
+    }
+
+    if (this.stallTime !== -1) {
+      let elapsed = (millis() - this.stallTime) / 2000;
+      this.scale = constrain(1 - elapsed, 0, 1);
+      if (this.scale === 0) {
+        gameState = "start";
+        tankButton.show();
+        airplaneButton.show();
+      }
+    }
+
+    if (mouseIsPressed) {
+      this.shoot();
+    }
+  }
+
+  shoot() {
+    let now = millis();
+    if (now - this.lastShot > this.shotCooldown && this.state === 'flying') {
+      let offsets = [-40, -25, 25, 40];
+      for (let offset of offsets) {
+        let dir = p5.Vector.fromAngle(this.angle + random(-0.05, 0.05));
+        let gunPos = this.pos.copy().add(p5.Vector.fromAngle(this.angle + HALF_PI).mult(offset));
+        bullets.push(new Bullet(gunPos, dir, 'airplane'));
+      }
+      this.lastShot = now;
+    }
+  }
+
+  dropBomb() {
+    let now = millis();
+    if (now - this.lastBomb > this.bombCooldown && this.bombLoads > 0 && this.state === 'flying') {
+      for (let i = 0; i < 2; i++) {
+        let offsetX = random(-150, 150);
+        let offsetY = random(-150, 150);
+        let offset = createVector(offsetX, offsetY);
+        offset.rotate(this.angle);
+        let bombPos = this.pos.copy().add(offset);
+        bombs.push(new Bomb(bombPos, this.angle));
+      }
+      this.bombLoads--;
+      this.lastBomb = now;
+    }
+  }
+
+  display() {
+    push();
+    translate(this.pos.x, this.pos.y);
+    rotate(this.angle);
+    scale(this.scale);
+    
+    if (this.state === 'flying') {
+      // Placeholder for airplane image
+      // if (airplaneImg) {
+      //   imageMode(CENTER);
+      //   image(airplaneImg, 0, 0, 96, 72); // Replace 'URL' in preload with airplane image URL (adjust size to cover fuselage + wings)
+      // } else {
+        fill(0, 100, 255);
+        noStroke();
+        ellipse(0, 0, 24, 72); // Narrower fuselage
+        translate(-15, 0);
+        ellipse(0, 0, 96, 21.6); // Shorter wings
+      // }
+    } else if (this.state === 'exploding') {
+      let alpha = map(this.explosionTime, 0, 1000, 255, 0);
+      fill(255, 165, 0, alpha);
+      noStroke();
+      randomSeed(this.pos.x * 1000 + this.pos.y);
+      for (let i = 0; i < 10; i++) {
+        let size = random(50, 100);
+        let offsetX = random(-100, 100);
+        let offsetY = random(-100, 100);
+        ellipse(offsetX, offsetY, size, size);
+      }
+    }
+    
     pop();
   }
 }
 
 class Bullet {
-  constructor(pos, dir) {
+  constructor(pos, dir, type) {
     this.pos = pos.copy();
-    this.vel = dir.copy().mult(3);
+    this.vel = dir.copy().mult(type === 'tank' ? 3 : 20);
+    this.type = type;
   }
 
   update() {
@@ -429,20 +777,117 @@ class Bullet {
   }
 
   hitsFiringRange() {
-    let distToTank = dist(this.pos.x, this.pos.y, tank.pos.x, tank.pos.y);
-    return distToTank >= FIRING_RANGE_RADIUS;
+    let distToPlayer = dist(this.pos.x, this.pos.y, playerVehicle.pos.x, playerVehicle.pos.y);
+    return distToPlayer >= FIRING_RANGE_RADIUS;
+  }
+
+  offscreen() {
+    return this.pos.x < 0 || this.pos.x > worldWidth || this.pos.y < 0 || this.pos.y > worldHeight;
   }
 
   display() {
     push();
     translate(this.pos.x, this.pos.y);
-    fill(255, 0, 0);
-    ellipse(0, 0, 5, 5);
+    if (this.type === 'tank') {
+      // Placeholder for tank bullet image
+      // if (tankBulletImg) {
+      //   imageMode(CENTER);
+      //   image(tankBulletImg, 0, 0, 5, 5); // Replace 'URL' in preload with tank bullet image URL
+      // } else {
+        fill(255, 0, 0);
+        ellipse(0, 0, 5);
+      // }
+    } else if (this.type === 'airplane') {
+      // Placeholder for airplane bullet image
+      // if (airplaneBulletImg) {
+      //   imageMode(CENTER);
+      //   image(airplaneBulletImg, 0, 0, 3, 3); // Replace 'URL' in preload with airplane bullet image URL
+      // } else {
+        fill(255, 165, 0);
+        ellipse(0, 0, 3);
+      // }
+    } else if (this.type === 'tankMachineGun') {
+      fill(255, 0, 0);
+      ellipse(0, 0, 3);
+    }
     pop();
   }
+}
 
-  offscreen() {
-    return this.pos.x < 0 || this.pos.x > worldWidth || this.pos.y < 0 || this.pos.y > worldHeight;
+class Bomb {
+  constructor(pos, angle) {
+    this.pos = pos.copy();
+    this.angle = angle;
+    this.vel = p5.Vector.fromAngle(angle).mult(0.5);
+    this.z = 100;
+    this.velZ = -100 / 300; // 5-second fall
+    this.state = 'falling';
+    this.hitTime = 0;
+    this.explosionTime = 0;
+    this.baseWidth = 75;
+    this.baseHeight = 37.5;
+  }
+
+  update() {
+    if (this.state === 'falling') {
+      this.pos.add(this.vel);
+      this.z += this.velZ;
+      if (this.z <= 0) {
+        this.state = 'hit';
+        this.z = 0;
+        this.hitTime = 0;
+      }
+    } else if (this.state === 'hit') {
+      this.hitTime += 1000 / frameRate();
+      if (this.hitTime >= 3000) {
+        this.state = 'exploding';
+        this.explosionTime = 0;
+      }
+    } else if (this.state === 'exploding') {
+      this.explosionTime += 1000 / frameRate();
+    }
+  }
+
+  hitsTank(tank) {
+    let dist = p5.Vector.dist(this.pos, tank.pos);
+    return dist < 50;
+  }
+
+  display() {
+    push();
+    translate(this.pos.x, this.pos.y);
+    rotate(this.angle);
+    let scale = this.state === 'falling' ? 0.15 + this.z / 400 : 0.15;
+    
+    if (this.state === 'falling' || this.state === 'hit') {
+      let flash = this.state === 'hit' && (
+        (this.hitTime >= 0 && this.hitTime < 500) ||
+        (this.hitTime >= 1000 && this.hitTime < 1500) ||
+        (this.hitTime >= 2000 && this.hitTime < 2500)
+      );
+      // Placeholder for bomb image
+      // if (bombImg && !flash) {
+      //   imageMode(CENTER);
+      //   image(bombImg, 0, 0, this.baseWidth * scale, this.baseHeight * scale); // Replace 'URL' in preload with bomb image URL
+      // } else {
+        fill(flash ? color(255, 255, 255) : color(50, 50, 50));
+        noStroke();
+        ellipse(0, 0, this.baseWidth * scale, this.baseHeight * scale);
+      // }
+    } else if (this.state === 'exploding') {
+      let alpha = map(this.explosionTime, 0, 1000, 255, 0);
+      fill(255, 165, 0, alpha);
+      noStroke();
+      randomSeed(this.pos.x * 1000 + this.pos.y);
+      for (let i = 0; i < 10; i++) {
+        let size = random(41.67, 83.33);
+        let offsetX = random(-100, 100);
+        let offsetY = random(-100, 100);
+        ellipse(offsetX, offsetY, size, size);
+      }
+    }
+    
+    pop();
   }
 }
 
@@ -456,9 +901,15 @@ class Obstacle {
   display() {
     push();
     translate(this.pos.x, this.pos.y);
-    fill(150, 100, 50);
-    rectMode(CENTER);
-    rect(0, 0, this.w, this.h, 5);
+    // Placeholder for obstacle image
+    // if (obstacleImg) {
+    //   imageMode(CENTER);
+    //   image(obstacleImg, 0, 0, this.w, this.h); // Replace 'URL' in preload with obstacle image URL
+    // } else {
+      fill(150, 100, 50);
+      rectMode(CENTER);
+      rect(0, 0, this.w, this.h, 5);
+    // }
     pop();
   }
 }
